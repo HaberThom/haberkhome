@@ -1,0 +1,90 @@
+services:
+  proxy:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+      - $PWD/proxy/ssl:/etc/ssl/haberkhome:ro
+      - $PWD/proxy/conf.d:/etc/nginx/conf.d:ro
+      - /var/log/nginx-proxy:/var/log/nginx
+    ports:
+      - 80:80
+      - 443:443
+    depends_on:
+      homeassistant:
+        condition: service_healthy
+    networks:
+      frontend:
+        ipv6_address: 2001:3200:3200::10
+      backend:
+        ipv4_address: 172.18.0.10
+    healthcheck:
+      test: ["CMD-SHELL", "netstat -ln | grep -q 443"]
+
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    volumes:
+      - $PWD/homeassistant:/config
+      - /var/db/homeassistant:/db
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    privileged: true
+    expose:
+      - 8123
+    healthcheck:
+      test: ["CMD-SHELL", "netstat -ln | grep -q 8123"]
+    networks:
+      backend:
+        ipv4_address: 172.18.0.11
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+
+  ha-linky:
+    image: ghcr.io/bokub/ha-linky-armv7:latest
+    entrypoint: ["node", "--experimental-modules", "dist/index.js"]
+    environment:
+      - SUPERVISOR_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIzOWFhZTBjYmMxNDc0Zjc0YjQ4MDdmY2NlN2VkYTIxNyIsImlhdCI6MTcxNTI0NTY3NSwiZXhwIjoyMDMwNjA1Njc1fQ.akkJLYLVXxu1toxQ_GIKGepOIM4tHG-omsqUiKDJRww
+      - WS_URL=ws://[homeassistant]:8123/api/websocket
+    volumes:
+      - $PWD/ha-linky/data:/data:ro
+      - $PWD/ha-linky/histo:/addon_configs/cf6b56a3_linky
+      - $PWD/ha-linky/histo:/config
+    depends_on:
+      homeassistant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "ps | grep -q node"]
+    restart: unless-stopped
+    networks:
+      backend:
+        ipv4_address: 172.18.0.20
+
+  autoheal:
+    deploy:
+      replicas: 1
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: all
+    image: willfarrell/autoheal:latest
+    network_mode: none
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+
+networks:
+  frontend:
+    enable_ipv6: true
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 2001:3200:3200::/64
+          gateway: 2001:3200:3200::1
+  backend:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+      - subnet: 172.18.0.0/24
+        gateway: 172.18.0.1
+
