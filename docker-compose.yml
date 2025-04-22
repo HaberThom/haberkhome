@@ -1,6 +1,6 @@
 services:
   proxy:
-    image: nginx:alpine
+    image: nginx:1.27.5-alpine
     restart: unless-stopped
     volumes:
       - $PWD/proxy/ssl:/etc/ssl/haberkhome:ro
@@ -21,7 +21,7 @@ services:
       test: ["CMD-SHELL", "netstat -ln | grep -q 443"]
 
   homeassistant:
-    image: ghcr.io/home-assistant/home-assistant:stable
+    image: ghcr.io/home-assistant/home-assistant:2025.4.3
     volumes:
       - $PWD/homeassistant:/config
       - /var/db/homeassistant:/db
@@ -40,7 +40,7 @@ services:
       - /dev/ttyUSB0:/dev/ttyUSB0
 
   ha-linky:
-    image: ghcr.io/bokub/ha-linky-armv7:latest
+    image: ghcr.io/bokub/ha-linky-armv7:1.5.0
     entrypoint: ["node", "--experimental-modules", "dist/index.js"]
     environment:
       - SUPERVISOR_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIzOWFhZTBjYmMxNDc0Zjc0YjQ4MDdmY2NlN2VkYTIxNyIsImlhdCI6MTcxNTI0NTY3NSwiZXhwIjoyMDMwNjA1Njc1fQ.akkJLYLVXxu1toxQ_GIKGepOIM4tHG-omsqUiKDJRww
